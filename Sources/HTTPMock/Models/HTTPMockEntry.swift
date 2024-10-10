@@ -10,67 +10,73 @@ import Foundation
 
 public struct HTTPMockEntry: Sendable {
 
-    let patterns: [HTTPFacet]
-    let response: URLResponse
+    let patternTree: ExpressionTree<HTTPFacet>
+    let statusCode: Int
+    let httpVersion: String?
+    let headerFields: [String: String]?
     let data: Data
 
-//    private init(patterns: [HTTPFacet]) {
-//        self.patterns = patterns
-//
-//        self.response = HTTPURLResponse(url: URL(fileReferenceLiteralResourceName: ""),
-//                                        statusCode: 200,
-//                                        httpVersion: nil,
-//                                        headerFields: nil)
-//    }
+    init(_ patternTree: ExpressionTree<HTTPFacet>,
+         statusCode: Int = 200,
+         httpVersion: String? = nil,
+         headerFields: [String: String]? = nil,
+         data: Data = Data()) {
 
-    public init?(urlRequest: URLRequest,
-                 statusCode: Int = 200,
-                 httpVersion: String? = nil,
-                 headerFields: [String: String]? = nil,
-                 data: Data = Data()) {
-
-        guard let url = urlRequest.url else {
-            return nil
-        }
-
-        self.patterns = []
-
-        let response = HTTPURLResponse(url: url,
-                                       statusCode: statusCode,
-                                       httpVersion: httpVersion,
-                                       headerFields: headerFields)
-
-        if let response = response {
-            self.response = response
-        } else {
-            self.response = .init(url: url,
-                                  mimeType: nil,
-                                  expectedContentLength: data.count,
-                                  textEncodingName: nil)
-        }
-
+        self.patternTree = patternTree
+        self.statusCode = statusCode
+        self.httpVersion = httpVersion
+        self.headerFields = headerFields
         self.data = data
+    }
+
+    public init(_ facet: HTTPFacet,
+                statusCode: Int = 200,
+                httpVersion: String? = nil,
+                headerFields: [String: String]? = nil,
+                data: Data = Data()) {
+
+        self.init(.init(nodes: [.value(facet)]),
+                  statusCode: statusCode,
+                  httpVersion: httpVersion,
+                  headerFields: headerFields,
+                  data: data)
+    }
+
+    public init(urlRequest: URLRequest,
+                statusCode: Int = 200,
+                httpVersion: String? = nil,
+                headerFields: [String: String]? = nil,
+                data: Data = Data()) {
+
+        self.init(.init(nodes: [.value(.urlRequest(urlRequest))]),
+                  statusCode: statusCode,
+                  httpVersion: httpVersion,
+                  headerFields: headerFields,
+                  data: data)
     }
 }
 
 extension HTTPMockEntry {
 
     func matches(task: URLSessionTask) -> Bool {
-        false
+
+        self.patternTree.matches { $0.matches(task) }
     }
-}
 
-extension HTTPMockEntry {
+    func response(for url: URL) -> URLResponse {
 
-}
+        let response = HTTPURLResponse(url: url,
+                                       statusCode: self.statusCode,
+                                       httpVersion: self.httpVersion,
+                                       headerFields: self.headerFields)
 
-indirect enum FacetOperator {
-    case value(HTTPFacet)
-    case and(lhs: FacetOperator, rhs: FacetOperator)
-    case or(lhs: FacetOperator, rhs: FacetOperator)
-    case not(FacetOperator)
-}
-
-struct HTTPFacetOperator {
-
+        if let response = response {
+            return response
+        } else {
+            return .init(url: url,
+                         mimeType: nil,
+                         expectedContentLength: self.data.count,
+                         textEncodingName: nil)
+        }
+    }
 }

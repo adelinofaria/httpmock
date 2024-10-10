@@ -10,4 +10,5 @@ import Foundation
 
 public enum HTTPMockError: Error {
     case notFound
+    case noURLFound
 }

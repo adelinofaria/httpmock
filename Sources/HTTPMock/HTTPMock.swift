@@ -11,7 +11,13 @@ import Synchronization
 
 public actor HTTPMock {
 
-    static let shared: HTTPMock = .init()
+    static let shared: HTTPMock = {
+        let instance = HTTPMock()
+
+        MockURLProtocol.delegate = instance
+
+        return instance
+    }()
 
     let mockEntries: Mutex<[HTTPMockEntry]> = .init([])
 

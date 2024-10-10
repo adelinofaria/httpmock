@@ -19,10 +19,14 @@ extension HTTPMock: MockURLProtocolDelegate {
     
     nonisolated func processRequest(with task: URLSessionTask) throws -> (Data, URLResponse) {
 
+        guard let url = task.currentRequest?.url else {
+            throw HTTPMockError.noURLFound
+        }
+
         guard let entry = self.entry(for: task) else {
             throw HTTPMockError.notFound
         }
 
-        return (entry.data, entry.response)
+        return (entry.data, entry.response(for: url))
     }
 }
